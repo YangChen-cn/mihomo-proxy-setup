@@ -1,0 +1,15 @@
+[Unit]
+Description=Mihomo (Clash Meta) proxy client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mihomo -d /etc/mihomo
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65535
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

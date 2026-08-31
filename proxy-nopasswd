@@ -1,0 +1,4 @@
+# Allow the unprivileged user to run the proxy toggle script without a password.
+# Replace %USERNAME% with your actual login name, then:
+#   sudo install -m 440 proxy-nopasswd /etc/sudoers.d/proxy-nopasswd
+%USERNAME% ALL=(root) NOPASSWD: /usr/local/bin/proxy
