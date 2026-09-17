@@ -201,7 +201,7 @@ proxies:
 proxy-groups:
   - name: "🚀 节点选择"
     type: select
-    proxies: ["♻️ 自动选择", {yaml_names}, "DIRECT"]
+    proxies: ["♻️ 自动选择", "DIRECT"]
   - name: "♻️ 自动选择"
     type: url-test
     url: "http://www.gstatic.com/generate_204"
@@ -215,31 +215,19 @@ rules:
   - DOMAIN-SUFFIX,openai.com,🚀 节点选择
   - DOMAIN-SUFFIX,oaistatic.com,🚀 节点选择
   - DOMAIN-SUFFIX,oaiusercontent.com,🚀 节点选择
-  # Google (incl. Antigravity / Code Assist / Gemini): reachable directly
-  # from this VM (HK), so DIRECT is faster and immune to proxy node rescans.
-  # NOTE: hostnames like daily-cloudcode-pa.googleapis.com are NOT subdomains
-  # of cloudcode-pa.googleapis.com (label boundary!), so match googleapis.com.
-  - DOMAIN-SUFFIX,googleapis.com,DIRECT
-  - DOMAIN-SUFFIX,goog,DIRECT
-  - DOMAIN-SUFFIX,google.com,DIRECT
-  - DOMAIN-SUFFIX,googleusercontent.com,DIRECT
   - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
   - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
   - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
   - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
   - IP-CIDR6,fc00::/7,DIRECT,no-resolve
   - GEOIP,CN,DIRECT
-  # non-OpenAI traffic rides the auto group; it may drift to a bad node
-  # without touching Codex, and node rescans bounce this group only
-  - MATCH,♻️ 自动选择
+  - MATCH,🚀 节点选择
 """
     tmp = tempfile.NamedTemporaryFile("w", dir=output.parent, delete=False, suffix=".tmp")
     try:
         tmp.write(config)
         tmp.close()
         os.replace(tmp.name, output)
-        # world-readable: no secrets in the config, lets scan_nodes.py read it
-        os.chmod(output, 0o644)
     finally:
         if os.path.exists(tmp.name):
             os.unlink(tmp.name)
@@ -269,9 +257,8 @@ def _yaml_block(proxy: dict, indent: int = 0) -> str:
     return "\n".join(lines)
 
 
+ALLOWLIST_FILE = Path("/etc/mihomo/codex-allowlist.txt")
 HK_ENDPOINTS_FILE = Path("/etc/mihomo/hk-endpoints.txt")
-# user-writable copy takes priority so rescans don't need root
-USER_HK_FILE = Path("/home/yang/mihomo-setup/hk-endpoints.txt")
 
 # Name categories with 100% HK exit (verified by scanning 196 nodes):
 # the subscription labels these nodes JP/KR/SG/... but every one of them
@@ -287,14 +274,10 @@ def load_hk_endpoints() -> set[str]:
 
     Backup for the name patterns above: catches nodes whose names don't
     reveal their HK exit (e.g. "TW 7"). Built by scan_nodes.py.
-    The user-writable copy wins so rescans don't require root.
     """
-    for f in (USER_HK_FILE, HK_ENDPOINTS_FILE):
-        if f.exists():
-            eps = {ln.strip() for ln in f.read_text().splitlines() if ln.strip()}
-            if eps:
-                return eps
-    return set()
+    if not HK_ENDPOINTS_FILE.exists():
+        return set()
+    return {ln.strip() for ln in HK_ENDPOINTS_FILE.read_text().splitlines() if ln.strip()}
 
 
 def main() -> None:

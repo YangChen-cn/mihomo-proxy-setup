@@ -43,14 +43,22 @@ def node_endpoint(node: str) -> str:
 
 
 def load_endpoints() -> dict[str, str]:
-    try:
-        import yaml
-        d = yaml.safe_load(open("/etc/mihomo/config.yaml"))
-        return {
-            p["name"]: f"{p['server']}:{p['port']}" for p in d.get("proxies", [])
-        }
-    except Exception:
-        return {}
+    import yaml
+    for path in ("/etc/mihomo/config.yaml",
+                 "/home/yang/mihomo-setup/config-current.yaml"):
+        try:
+            d = yaml.safe_load(open(path))
+            eps = {
+                p["name"]: f"{p['server']}:{p['port']}"
+                for p in d.get("proxies", [])
+            }
+            if eps:
+                print(f"endpoints loaded from {path}", flush=True)
+                return eps
+        except Exception:
+            continue
+    print("WARNING: no endpoint source readable", flush=True)
+    return {}
 
 
 ENDPOINTS = load_endpoints()
@@ -102,6 +110,28 @@ def main() -> None:
             if i % 10 == 0:
                 print(f"  {i}/{len(nodes)}...", flush=True)
     print(f"done -> {OUT}", flush=True)
+
+    # auto-generate the HK-endpoint blacklist (user-writable; update.py reads
+    # this copy first so no root is needed to refresh filtering).
+    # UNION with the existing list: each scan sees a rotating node pool, so
+    # accumulating across scans is what converges to full coverage.
+    bl_file = "/home/yang/mihomo-setup/hk-endpoints.txt"
+    existing = set()
+    try:
+        existing = {ln.strip() for ln in open(bl_file) if ln.strip()}
+    except FileNotFoundError:
+        pass
+    hk_eps = []
+    for ln in open(OUT):
+        node, ep, country = ln.rsplit(" | ", 2)
+        if country.strip().startswith("HK") and ep.strip() != "?":
+            hk_eps.append(ep.strip())
+    bl = sorted(existing | set(hk_eps))
+    with open(bl_file, "w") as f:
+        f.write("\n".join(bl) + "\n")
+    print(f"blacklist written: {len(bl)} HK endpoints "
+          f"({len(set(hk_eps))} from this scan, {len(existing)} carried over)",
+          flush=True)
 
 
 if __name__ == "__main__":
