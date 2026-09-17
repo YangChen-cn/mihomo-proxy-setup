@@ -211,6 +211,10 @@ proxy-groups:
     proxies: [{yaml_names}]
 
 rules:
+  # ip-api.com rides the OpenAI group on purpose: it is the health probe for
+  # the pinned node (curl http://ip-api.com/json via the proxy reports the
+  # exit country of exactly the node Codex is using)
+  - DOMAIN-SUFFIX,ip-api.com,🚀 节点选择
   - DOMAIN-SUFFIX,chatgpt.com,🚀 节点选择
   - DOMAIN-SUFFIX,openai.com,🚀 节点选择
   - DOMAIN-SUFFIX,oaistatic.com,🚀 节点选择
